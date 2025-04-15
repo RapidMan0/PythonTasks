@@ -19,9 +19,15 @@ df["type"] = df["type"].map({"red": 0, "white": 1})
 
 # Группировка по типу вина и расчет статистик для каждой группы, var это мера разброса данных, показывающая, насколько значения отклоняются от среднего
 statistical_analysis = df.groupby("type").agg(
-    ["mean", "median", "std", "var", lambda x: x.max() - x.min()] # Медиана — это центральное значение для высоких и низких значений, std — это стандартное отклонение, var — это дисперсия, а lambda x: x.max() - x.min() — это разница между максимальным и минимальным значением
+    [
+        "mean",
+        "median",
+        "std",
+        "var",
+        lambda x: x.max() - x.min(),
+    ]  # Медиана — это центральное значение для высоких и низких значений, std — это стандартное отклонение, var — это дисперсия, а lambda x: x.max() - x.min() — это разница между максимальным и минимальным значением
 )
-print(statistical_analysis) 
+print(statistical_analysis)
 
 # Анализа кореляции между признаками и типом вина
 correlation = df.corr()["type"].abs().sort_values(ascending=False)
