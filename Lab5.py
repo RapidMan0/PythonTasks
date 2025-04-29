@@ -1,100 +1,78 @@
-# 1. Импорт библиотек
+# Импорт библиотек
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score
+import warnings
 
-# 2. Загрузка данных
-df = pd.read_csv("Student_Mental_Stress_and_Coping_Mechanisms.csv")
+warnings.filterwarnings("ignore")
 
-# 3. afisarea
-df_copy = df
-dft = df
-df_corr = df
-df_copy
+# Загрузка датасета
+df = pd.read_csv("ChocolateSales.csv")
 
-# 4. afisarea informatiei
-print("Информация о датафрейме:")
-df.info()
+# Просмотр первых строк
+print("Предпросмотр данных:")
+print(df.head())
 
-# 5. Очистка названий колонок
-df.columns = df.columns.str.strip()
+print (df.info())
+# Предобработка числовых данных
+df["Amount"] = df["Amount"].replace("[\$,]", "", regex=True).astype(float)
 
-# 6. Проверка пропущенных значений
-print("\nПропущенные значения:\n", df.isnull().sum())
+# Целевая переменная — 'Product'
+target_column = "Product" # Целевая переменная тип шоколада
 
-# 7. Кодировка категориальных признаков
-le = LabelEncoder()
-for col in df.select_dtypes(include="object").columns:
-    df[col] = le.fit_transform(df[col].astype(str))
+# Разделение на признаки (X) и целевую переменную (y)
+X = df.drop(columns=[target_column, "Date"])  # Исключаем целевой признак и дату
+y = df[target_column] 
 
-# 8. Целевая переменная — бинаризация по уровню стресса
-df["StressBinary"] = df["Mental Stress Level"].apply(lambda x: 1 if x >= 2 else 0)
+# Преобразование категориальных признаков в числовые (если есть)
+X = pd.get_dummies(X, drop_first=True) # Категориальные переменные (например, регион, месяц) преобразуются в числовой формат с помощью pd.get_dummies().
 
-# 9. Корреляции и выбор топ-3 признаков
-corr_matrix = df.corr()
-target_corr = (
-    corr_matrix["StressBinary"].drop("StressBinary").sort_values(ascending=False)
-)
-top_features = target_corr.head(3).index.tolist()
-
-print("\n🧠 Топ-3 признака по корреляции с уровнем стресса:")
-print(target_corr.head(3))
-
-# 10. Подготовка данных
-X = df[top_features]
-y = df["StressBinary"]
+# Разделение на обучающую и тестовую выборки
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
-# 11. Обучение моделей
+# Список моделей
 models = {
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Decision Tree": DecisionTreeClassifier(),
-    "Random Forest": RandomForestClassifier(),
+    "KNN": KNeighborsClassifier(n_neighbors=5),
+    "Decision Tree": DecisionTreeClassifier(random_state=42),
+    "Random Forest": RandomForestClassifier(random_state=42),
+    "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
     "Naive Bayes": GaussianNB(),
 }
+
+# Обучение и оценка точности моделей
+accuracy_scores = {}
 
 for name, model in models.items():
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    accuracy_scores[name] = acc
+    print(f"{name} Accuracy: {acc:.4f}")
 
-    print(f"\n📊 Модель: {name}")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Classification Report:\n", classification_report(y_test, y_pred))
+# Выбор лучшей модели
+best_model_name = max(accuracy_scores, key=accuracy_scores.get)
+best_accuracy = accuracy_scores[best_model_name]
 
-    # Матрица ошибок
-    cm = confusion_matrix(y_test, y_pred)
-    plt.figure(figsize=(6, 4))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="YlGnBu")
-    plt.title(f"Confusion Matrix: {name}")
-    plt.xlabel("Предсказано")
-    plt.ylabel("Фактическое")
-    plt.tight_layout()
-    plt.show()
+print("\nРезультаты моделей:")
+for name, acc in accuracy_scores.items():
+    print(f"{name}: {acc:.4f}")
 
-# 12. Визуализация целевой переменной
-plt.figure(figsize=(6, 4))
-sns.countplot(x=y, palette="coolwarm")
-plt.title("Распределение уровня стресса (бинарно)")
-plt.xlabel("Стресс: 0 = низкий, 1 = высокий")
-plt.ylabel("Количество")
-plt.tight_layout()
-plt.show()
+print(f"\nЛучшая модель: {best_model_name} с точностью: {best_accuracy:.4f}")
 
-# 13. Тепловая карта корреляций
-plt.figure(figsize=(14, 10))
-sns.heatmap(
-    corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", square=True, linewidths=0.5
+# Step 7: Conclusion
+print("\nConclusion:")
+print(
+    f"After training and evaluating five machine learning models (KNN, Decision Tree, Random Forest, "
+    f"Logistic Regression, and Naive Bayes) on the Chocolate Sales Dataset, the model with the "
+    f"highest accuracy on the test subset is {best_model_name} with an accuracy of {best_accuracy:.4f}. "
+    f"This model is the most effective among those tested for predicting the type of chocolate product "
+    f"based on sales-related features such as region, month, unit price, and quantity."
 )
-plt.title("Корреляционная матрица всех признаков")
-plt.tight_layout()
-plt.show()
