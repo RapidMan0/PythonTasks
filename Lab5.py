@@ -1,6 +1,7 @@
 # Импорт библиотек
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -15,23 +16,75 @@ warnings.filterwarnings("ignore")
 # Загрузка датасета
 df = pd.read_csv("ChocolateSales.csv")
 
-# Просмотр первых строк
-print("Предпросмотр данных:")
-print(df.head())
+# Преобразование даты в datetime и извлечение месяца
+df["Date"] = pd.to_datetime(df["Date"], format="%d-%b-%y")
+df["Month"] = df["Date"].dt.month_name()
 
-print (df.info())
-# Предобработка числовых данных
+# Очистка и преобразование суммы продажи
 df["Amount"] = df["Amount"].replace("[\$,]", "", regex=True).astype(float)
 
-# Целевая переменная — 'Product'
-target_column = "Product" # Целевая переменная тип шоколада
+# Фильтрация по стране India
+df_india = df[df["Country"] == "India"]
 
-# Разделение на признаки (X) и целевую переменную (y)
-X = df.drop(columns=[target_column, "Date"])  # Исключаем целевой признак и дату
-y = df[target_column] 
+# Группировка по месяцу и продукту с суммированием продаж
+monthly_sales = df_india.groupby(["Month", "Product"])["Amount"].sum().reset_index()
 
-# Преобразование категориальных признаков в числовые (если есть)
-X = pd.get_dummies(X, drop_first=True) # Категориальные переменные (например, регион, месяц) преобразуются в числовой формат с помощью pd.get_dummies().
+# Переупорядочим месяцы
+month_order = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+]
+monthly_sales["Month"] = pd.Categorical(
+    monthly_sales["Month"], categories=month_order, ordered=True
+)
+monthly_sales = monthly_sales.sort_values("Month")
+
+# Построим график продаж
+# Построим график продаж с уникальными цветами
+plt.figure(figsize=(12, 6))
+
+# Создаем список уникальных цветов
+colors = plt.cm.tab20.colors  # Используем палитру из 20 цветов
+product_colors = {
+    product: colors[i % len(colors)]
+    for i, product in enumerate(monthly_sales["Product"].unique())
+}
+
+for product in monthly_sales["Product"].unique():
+    data = monthly_sales[monthly_sales["Product"] == product]
+    plt.plot(
+        data["Month"],
+        data["Amount"],
+        marker="o",
+        label=product,
+        color=product_colors[product],
+    )
+
+plt.title("Продажи шоколадных продуктов по месяцам (India)")
+plt.xlabel("Месяц")
+plt.ylabel("Сумма продаж ($)")
+plt.legend(title="Продукт", bbox_to_anchor=(1.05, 1), loc="upper left")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.grid(True)
+plt.show()
+
+# Подготовка данных для моделей
+X = df_india[["Month", "Amount", "Boxes Shipped"]]
+X["Month"] = pd.Categorical(
+    X["Month"], categories=month_order, ordered=True
+).codes  # Преобразуем месяцы в числовой формат
+y = df_india["Product"]
 
 # Разделение на обучающую и тестовую выборки
 X_train, X_test, y_train, y_test = train_test_split(
@@ -59,20 +112,7 @@ for name, model in models.items():
 
 # Выбор лучшей модели
 best_model_name = max(accuracy_scores, key=accuracy_scores.get)
-best_accuracy = accuracy_scores[best_model_name]
-
-print("\nРезультаты моделей:")
-for name, acc in accuracy_scores.items():
-    print(f"{name}: {acc:.4f}")
-
-print(f"\nЛучшая модель: {best_model_name} с точностью: {best_accuracy:.4f}")
-
-# Step 7: Conclusion
-print("\nConclusion:")
+best_model = models[best_model_name]
 print(
-    f"After training and evaluating five machine learning models (KNN, Decision Tree, Random Forest, "
-    f"Logistic Regression, and Naive Bayes) on the Chocolate Sales Dataset, the model with the "
-    f"highest accuracy on the test subset is {best_model_name} with an accuracy of {best_accuracy:.4f}. "
-    f"This model is the most effective among those tested for predicting the type of chocolate product "
-    f"based on sales-related features such as region, month, unit price, and quantity."
+    f"\nЛучшая модель: {best_model_name} с точностью: {accuracy_scores[best_model_name]:.4f}"
 )
